@@ -1,0 +1,141 @@
+# Docker Compose busca y carga automáticamente el archivo .env que está en el mismo directorio
+# donde se ejecuta. Esto es una funcionalidad de Docker Compose, no de Linux en sí
+
+# PUID (User ID): Es el ID del usuario en tu sistema Linux (id -u)
+# PGID (Group ID): Es el ID del grupo al que pertenece ese usuario (id -g)
+# TZ (Timezone): Franja horaria (Europe/Madrid)
+
+services:
+  homepage:
+    image: ghcr.io/benphelps/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    ports:
+      - "3000:3000"                                 # Puerto donde se servirá la página
+    volumes:
+      - ./docker_homepage/config:/app/config        # Ajusta esto a la ruta donde quieras guardar los archivos de configuración
+      #- ./docker_homepage/assets:/app/asset        # Para almacenar activos personalizados como imágenes, iconos, etc.
+    environment:
+      - PUID=${PUID}                                
+      - PGID=${PGID}                                
+      - UMASK=002       # Permisos de archivo
+      - TZ=${TIMEZONE}                              
+    labels:
+      - 'wud.tag.include=^v\d+\.\d+\.\d+$$'
+    networks:
+      - home-server-network
+
+  whats-up-docker:
+    image: "fmartinou/whats-up-docker:latest"
+    container_name: "whats-up-docker"
+    restart: unless-stopped
+    ports:
+      - "3001:3000"                                   # Cambia el puerto si es necesario    
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Montamos el socket de Docker para poder hablar con la API de Docker (:ro para read only)
+    environment:
+      - TZ=${TIMEZONE}
+    networks:
+      - home-server-network
+
+# IMPORTANTE: Para poder usar Pi-hole, hay que configurar éste como servidor DNS para la LAN de nuestro router
+# Pi-hole básicamente actuará como un servidor DNS filtrando peticiones de anuncios, etc. 
+# Ir al router y configurar la IPv4 de nuestro servidor (que corre Pi-Hole) como 'Primary DNS server'
+# Asegurarnos que hay un 'Secondary DNS server' por si tenemos el server apagado
+# --- Servidores DNS de Movistar: 80.58.61.250 / 80.58.61.254
+# Ir a 192.168.1.1 -> Red Local -> Red Local -> Escribir la IPv4 del server en Servidor DNS 1
+
+# LAN = Local Area Network (todos los dispositivos del router hacia "dentro"
+# WAN = Wide Area Network (red externa, internet. Conexion del router con el proveedor de internet).
+# En este caso queremos configurar el DNS Server de la LAN
+
+#  pihole:
+#    image: pihole/pihole:latest
+#    container_name: pihole
+#    restart: unless-stopped
+#    ports:
+#      - 53:53/tcp
+#      - 53:53/udp
+#      - 67:67/udp
+#      - 8080:80/tcp                                 # Para la interfaz web de Pi-hole
+#      - 443:443/tcp
+#    volumes:
+#      - "./docker_pihole:/etc/pihole"               # Volumen para almacenar la configuración de Pi-hole
+#      - "./docker_pihole_dnsmasq.d:/etc/dnsmasq.d"  # Volumen para almacenar la configuración de DNSMasq
+#    environment:
+#      - TZ=${TIMEZONE}
+#      - FTLCONF_LOCAL_IPV4=${IPV4_ADDR}             # Cambia esto a la IP de tu servidor en la red local
+#    cap_add:
+#      - NET_ADMIN                                   # Otorga permisos para manipular la red
+
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    ports:
+      - 8096:8096                           # Cambia si necesitas otro puerto
+      - 8920:8920                           # Puerto seguro (HTTPS)
+    volumes:
+      - ./docker_jellyfin/config:/config        # Configuración persistente
+      - ./docker_jellyfin/cache:/cache          # Cache para mejorar el rendimiento
+      - ../Pictures:/media/fotos # Carpeta de fotos
+      - ../Downloads/movies_qbittorrent:/media/movies  # Carpeta de descargas videos qbitt
+      - ../Downloads/shows_qbittorrent:/media/shows    # Carpeta de descargas series qbitt
+      - ../Music:/media/musica                  # Carpeta de música si la tienes
+    devices:
+      - /dev/dri:/dev/dri
+    environment:
+      - UID=${PUID}
+      - GID=${PGID}
+      - DOCKER_MODS=linuxserver/mods:jellyfin-opencl-intel
+    networks:
+      - home-server-network
+
+# WEBUI_PORT variable
+# Due to issues with CSRF and port mapping, should you require to alter the port for the web UI you need to change both sides of the -p 8080 switch AND set the WEBUI_PORT variable to the new port.
+# For example, to set the port to 8090 you need to set -p 8090:8090 and -e WEBUI_PORT=8090
+
+  qbittorrent:
+    image: linuxserver/qbittorrent:5.0.3
+    container_name: qbittorrent
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TIMEZONE}
+      - WEBUI_PORT=8081
+      - TORRENTING_PORT=6881
+    volumes:
+      - ./docker_qbittorrent/config:/config
+      - /home/${USER}/Downloads/movies_qbittorrent:/downloads_movies
+      - /home/${USER}/Downloads/shows_qbittorrent:/downloads_shows
+      - /home/${USER}/Downloads/other_qbittorrent:/downloads
+    ports:
+      - 8081:8081
+      - 6881:6881
+      - 6881:6881/udp
+    labels:
+      - 'wud.tag.include=^\d\.\d+\.\d+$$'
+    networks:
+      - home-server-network
+
+  jackett:
+    image: lscr.io/linuxserver/jackett:0.22.1133
+    restart: unless-stopped
+    container_name: jackett
+    volumes:
+      - ./docker_jackett/config:/config
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TIMEZONE}
+    ports:
+      - 9117:9117
+    labels:
+      - 'wud.tag.include=^\d\.\d+\.\d+$$'
+    networks:
+      - home-server-network
+
+networks:
+  home-server-network:
+    name: home-server-network

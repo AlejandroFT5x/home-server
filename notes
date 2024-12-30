@@ -1,0 +1,27 @@
+Listar imagenes Docker ya compiladas en mi sistema:
+docker images
+
+Eliminar alguna imagen:
+docker rmi <ID>
+
+Ver qué dockers estan corriendo:
+
+docker ps 
+
+Luego podriamos filtrar por nombre:
+docker ps --filter "name=<project_name>"
+ejemplo: docker ps --filter "name=jellyfin"
+
+Para parar docker-compose:
+docker-compose down --remove-orphans
+
+Para iniciar docker-compose:
+docker up -d
+
+Para parar un docker en concreto:
+(Con docker-compose): docker-compose stop nombre_servicio
+(Con docker): docker stop nombre_servicio
+
+
+Como parar la interfaz grafica del server??????
+(encenderla) startx

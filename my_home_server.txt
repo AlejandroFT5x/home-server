@@ -1,0 +1,115 @@
+
+apt install software-properties-common apt-transport-https ca-certificates curl gnupg lsb-release
+mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+apt update
+apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-compose
+
+-----
+
+sudo usermod -aG docker $USER
+sudo reboot now
+
+-------
+
+systemctl status docker
+systemctl enable docker
+
+----------------------------
+
+1. Versión
+yaml
+Copiar código
+version: '3'
+Esto especifica la versión de la sintaxis de Docker Compose que estás utilizando. La versión 3 es compatible con muchas características y es comúnmente usada.
+
+2. Servicios
+yaml
+Copiar código
+services:
+  navidrome:
+Aquí defines los servicios que formarán parte de tu aplicación. En este caso, solo hay un servicio llamado navidrome.
+
+3. Imagen
+yaml
+Copiar código
+image: deluan/navidrome:latest
+Especifica la imagen de Docker que se utilizará para crear el contenedor. deluan/navidrome:latest es la imagen de Navidrome desde Docker Hub, y latest indica que se debe usar la versión más reciente.
+
+4. Nombre del contenedor
+yaml
+Copiar código
+container_name: navidrome
+Esto establece un nombre específico para el contenedor. Si no se proporciona, Docker genera un nombre automáticamente.
+
+5. Reinicio
+yaml
+Copiar código
+restart: unless-stopped
+Este parámetro indica que el contenedor debe reiniciarse automáticamente a menos que se haya detenido manualmente. Es útil para garantizar que el servicio esté disponible en caso de que falle.
+
+6. Variables de entorno
+yaml
+Copiar código
+environment:
+  - PUID=1000               # Cambia esto por tu UID
+  - PGID=1000               # Cambia esto por tu GID
+  - TZ=Europe/Madrid        # Cambia la zona horaria si es necesario
+  - ND_LOGLEVEL=debug       # Nivel de log (puedes cambiar a "info" en producción)
+Aquí defines varias variables de entorno:
+
+PUID y PGID: Estos valores se utilizan para establecer los permisos del contenedor, asegurando que los archivos creados dentro del contenedor sean propiedad del usuario y grupo que ejecuta el contenedor en el host.
+TZ: Define la zona horaria. Cambiarlo si es necesario ayuda a mantener los registros y las funciones de tiempo correctas.
+ND_LOGLEVEL: Establece el nivel de log de Navidrome. Usar debug es útil para el desarrollo, pero en producción es recomendable usar info para reducir el ruido en los registros.
+7. Volúmenes
+yaml
+Copiar código
+volumes:
+  - ./Music:/music          # Carpeta local donde tienes la música
+  - ./navidrome:/data       # Persistencia de datos de Navidrome
+Los volúmenes permiten persistir datos fuera del contenedor:
+
+./Music:/music: Monta la carpeta local Music en el directorio /music del contenedor, donde Navidrome buscará los archivos de música.
+./navidrome:/data: Monta la carpeta navidrome en el contenedor para almacenar configuraciones y datos persistentes, de modo que no se pierdan cuando se reinicie el contenedor.
+8. Puertos
+yaml
+Copiar código
+ports:
+  - 4533:4533               # Puerto en el que Navidrome estará escuchando
+Este mapeo de puertos permite que el contenedor exponga su puerto interno (4533) en el mismo puerto en el host, lo que significa que podrás acceder a Navidrome a través de http://localhost:4533.
+
+Resumen
+Este archivo docker-compose.yml está configurado para ejecutar Navidrome, un servidor de música, en un contenedor de Docker. Asegúrate de ajustar el PUID y PGID según tu configuración de usuario en el sistema para evitar problemas de permisos.
+
+-------------------------------- REINICIAR DOCKER-COMPOSE----------------------------
+
+docker-compose down -v
+sudo systemctl restart docker
+docker-compose up -d
+
+-------------------------------- FIJAR IPv4 EN HOME SERVER ----------------------------
+Debian (versiones recientes) con netplan
+
+ip -c a (para ver ips y tal, substituye a ifconfig)
+
+yo he fijado la IP para la interfaz de ethernet usando el propio GUI del NetworkManager
+
+---------------------------------------------------------------------------------------
+
+Para editar lo que aparece en HOMEPAGE, hay que editar el services.yaml que se ha generado en
+la carpeta config del servicio.
+
+uso el que me ha pasado el Alien de ejemplo
+
+y hacer
+
+docker-compose restart homepage
+(para no tener que hacer un docker-compose down -v, docker-compose up -d)
+
+------------------------ RSYNC DISCOS DUROS ----------------
+
+1) Montar los dos discos duros con sudo mount /dev/sdX /media/XXXXX
+2) rsync -avr --delete /media/XXXX /media/XXXX (de un disco a otro)
+
+
